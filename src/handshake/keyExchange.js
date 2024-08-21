@@ -3,7 +3,7 @@ const JWT = require('jsonwebtoken')
 const crypto = require('crypto')
 const debug = require('debug')('minecraft-protocol')
 
-const SALT = crypto.randomBytes(16)
+const SALT = '🧂'
 
 const curve = 'secp384r1'
 const pem = { format: 'pem', type: 'sec1' }
