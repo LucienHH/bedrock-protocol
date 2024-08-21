@@ -56,12 +56,67 @@ class Framer {
     return Framer.getPackets(decompressed)
   }
 
+  static decodePacket (client, buffer) {
+
+    // Decompress
+    let decompressed
+    if (client.features.compressorInHeader && client.compressionReady) {
+      decompressed = this.decompress(buffer[0], buffer.slice(1))
+    } else {
+      // On old versions, compressor is session-wide ; failing to decompress
+      // a packet will assume it's not compressed
+      try {
+        decompressed = this.decompress(client.compressionAlgorithm, buffer)
+      } catch (e) {
+        decompressed = buffer
+      }
+    }
+    
+    return Framer.getPackets(decompressed)
+  }
+
   encode () {
     const buf = Buffer.concat(this.packets)
     const compressed = (buf.length > this.compressionThreshold) ? this.compress(buf) : buf
-    const header = this.writeCompressor ? [0xfe, 0] : [0xfe]
+    const header = this.writeCompressor ? [0xfe, 0] : [0xfe] // 0xfe is the batch packet header and 0 is the compression type
     return Buffer.concat([Buffer.from(header), compressed])
   }
+
+  // encodePacket(packet) {
+  //   let buf = Buffer.alloc(0);
+  //   const l = Buffer.alloc(5);
+
+  //   const packetLength = writeVaruint32(packet.length, l);
+    
+  //   buf = Buffer.concat([buf, packetLength, packet]);
+
+  //   let prepend = Buffer.alloc(0);
+
+  //   const finalData = Buffer.concat([prepend, buf]);
+
+  //   const compressed = (finalData.length > this.compressionThreshold) ? this.compress(finalData) : finalData;
+
+  //   const header = this.writeCompressor ? [0xfe, 0] : [0xfe];
+
+  //   return Buffer.concat([Buffer.from(header), compressed]);
+  // }
+
+  encodePacket (chunk) {
+    const varIntSize = sizeOfVarInt(chunk.byteLength)
+    
+    const buffer = Buffer.allocUnsafe(varIntSize + chunk.byteLength)
+    
+    writeVarInt(chunk.length, buffer, 0)
+
+    chunk.copy(buffer, varIntSize)
+
+    const compressed = (buffer.length > this.compressionThreshold) ? this.compress(buffer) : buffer
+        
+    return this.writeCompressor
+      ? Buffer.concat([Buffer.from([255]), compressed])
+      : compressed
+  }
+
 
   addEncodedPacket (chunk) {
     const varIntSize = sizeOfVarInt(chunk.byteLength)
@@ -103,6 +158,17 @@ class Framer {
     }
     return packets
   }
+}
+
+function writeVaruint32(x, buffer) {
+  let i = 0;
+  while (x >= 0x80) {
+      buffer[i] = (x & 0xff) | 0x80;
+      i++;
+      x >>= 7;
+  }
+  buffer[i] = x & 0xff;
+  return buffer.slice(0, i + 1);
 }
 
 module.exports = { Framer }

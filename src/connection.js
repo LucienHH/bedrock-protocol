@@ -71,13 +71,14 @@ class Connection extends EventEmitter {
     if (name === 'start_game') this.updateItemPalette(params.itemstates)
     const batch = new Framer(this)
     const packet = this.serializer.createPacketBuffer({ name, params })
-    batch.addEncodedPacket(packet)
 
-    if (this.encryptionEnabled) {
-      this.sendEncryptedBatch(batch)
-    } else {
-      this.sendDecryptedBatch(batch)
-    }
+    this.sendMCPE(batch.encodePacket(packet))
+
+    // NetherNet doesn't use batching or encryption
+    // if (this.encryptionEnabled) {
+    //   this.encrypt(batch.encodePacket(packet))
+    // } else {
+    // }
   }
 
   queue (name, params) {
@@ -95,15 +96,22 @@ class Connection extends EventEmitter {
 
   _tick () {
     if (this.sendQ.length) {
-      const batch = new Framer(this)
-      batch.addEncodedPackets(this.sendQ)
+      // batch.addEncodedPackets(this.sendQ)
       this.sendQ = []
       this.sendIds = []
-      if (this.encryptionEnabled) {
-        this.sendEncryptedBatch(batch)
-      } else {
-        this.sendDecryptedBatch(batch)
+    
+      for (const packet of this.sendQ) {
+        const batch = new Framer(this)
+
+        this.sendMCPE(batch.encodePacket(packet))
+        
+        // if (this.encryptionEnabled) {
+        //   this.encrypt(batch.encodePacket(packet))
+        // } else {
+        // }
+
       }
+      
     }
   }
 
@@ -143,9 +151,9 @@ class Connection extends EventEmitter {
   }
 
   sendMCPE (buffer, immediate) {
-    if (this.connection.connected === false || this.status === ClientStatus.Disconnected) return
+    // if (this.connection.connected === false || this.status === ClientStatus.Disconnected) return
     try {
-      this.connection.sendReliable(buffer, immediate)
+      this.connection.write(buffer)
     } catch (e) {
       debug('while sending to', this.connection, e)
     }
@@ -158,10 +166,13 @@ class Connection extends EventEmitter {
   }
 
   onDecryptedPacket = (buf) => {
-    const packets = Framer.getPackets(buf)
+    // const packets = Framer.getPackets(buf)
+    const packets = Framer.decodePacket(this, buf)
+
     for (const packet of packets) {
       this.readPacket(packet)
     }
+  
   }
 
   handle (buffer) { // handle encapsulated

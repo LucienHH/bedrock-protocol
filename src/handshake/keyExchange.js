@@ -3,7 +3,8 @@ const JWT = require('jsonwebtoken')
 const crypto = require('crypto')
 const debug = require('debug')('minecraft-protocol')
 
-const SALT = '🧂'
+const SALT = crypto.randomBytes(16)
+
 const curve = 'secp384r1'
 const pem = { format: 'pem', type: 'sec1' }
 const der = { format: 'der', type: 'spki' }
@@ -18,9 +19,9 @@ function KeyExchange (client, server, options) {
   function startClientboundEncryption (publicKey) {
     debug('[encrypt] Client pub key base64: ', publicKey)
 
-    const pubKeyDer = crypto.createPublicKey({ key: Buffer.from(publicKey.key, 'base64'), ...der })
+    // const pubKeyDer = crypto.createPublicKey({ key: Buffer.from(publicKey.key, 'base64'), ...der })
     // Shared secret from the client's public key + our private key
-    client.sharedSecret = crypto.diffieHellman({ privateKey: client.ecdhKeyPair.privateKey, publicKey: pubKeyDer })
+    // client.sharedSecret = crypto.diffieHellman({ privateKey: client.ecdhKeyPair.privateKey, publicKey: pubKeyDer })
 
     // Secret hash we use for packet encryption:
     // From the public key of the remote and the private key
@@ -28,11 +29,9 @@ function KeyExchange (client, server, options) {
     // The secret key bytes are then computed as
     // sha256(server_token + shared_secret). These secret key
     //  bytes are 32 bytes long.
-    const secretHash = crypto.createHash('sha256')
-    secretHash.update(SALT)
-    secretHash.update(client.sharedSecret)
-
-    client.secretKeyBytes = secretHash.digest()
+    // const secretHash = crypto.createHash('sha256')
+    // secretHash.update(SALT)
+    // secretHash.update(client.sharedSecret)
 
     const token = JWT.sign({
       salt: toBase64(SALT),
@@ -40,12 +39,13 @@ function KeyExchange (client, server, options) {
     }, client.ecdhKeyPair.privateKey, { algorithm: 'ES384', header: { x5u: client.clientX509 } })
 
     client.write('server_to_client_handshake', { token })
+    // client.secretKeyBytes = secretHash.digest()
 
-    // The encryption scheme is AES/CFB8/NoPadding with the
-    // secret key being the result of the sha256 above and
-    // the IV being the first 16 bytes of this secret key.
-    const initial = client.secretKeyBytes.slice(0, 16)
-    client.startEncryption(initial)
+    // // The encryption scheme is AES/CFB8/NoPadding with the
+    // // secret key being the result of the sha256 above and
+    // // the IV being the first 16 bytes of this secret key.
+    // const initial = client.secretKeyBytes.slice(0, 16)
+    // client.startEncryption(initial)
   }
 
   function startServerboundEncryption (token) {

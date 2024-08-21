@@ -4,7 +4,11 @@ const { Player } = require('./serverPlayer')
 const { sleep } = require('./datatypes/util')
 const { ServerAdvertisement } = require('./server/advertisement')
 const Options = require('./options')
+
 const debug = globalThis.isElectron ? console.debug : require('debug')('minecraft-protocol')
+
+const { Signal } = require('./signaling/Signal')
+const { Nethernet } = require('./nethernet/Nethernet')
 
 class Server extends EventEmitter {
   constructor (options) {
@@ -77,10 +81,9 @@ class Server extends EventEmitter {
   }
 
   onOpenConnection = (conn) => {
-    this.conLog('New connection: ', conn?.address)
-
+    this.conLog('New connection: ', conn?.id)
     const player = new Player(this, conn)
-    this.clients[conn.address] = player
+    this.clients[conn.id] = player
     this.clientCount++
     this.emit('connect', player)
   }
@@ -102,7 +105,7 @@ class Server extends EventEmitter {
       return
     }
 
-    process.nextTick(() => client.handle(buffer))
+    process.nextTick(() => client.onDecryptedPacket(buffer))
   }
 
   getAdvertisement () {
@@ -137,6 +140,30 @@ class Server extends EventEmitter {
     return { host, port }
   }
 
+  async listenNethernet (auth, networkID) {
+
+    this.signaling = new Signal(auth, networkID)
+
+    this.nethernet = new Nethernet(this.signaling, networkID)
+
+    try {
+      await this.nethernet.listen()
+    } catch (e) {
+      throw e
+    }
+
+    this.conLog('Listening on')
+
+    this.nethernet.onOpenConnection = this.onOpenConnection
+    
+    this.nethernet.onCloseConnection = this.onCloseConnection
+    
+    this.nethernet.onEncapsulated = this.onEncapsulated
+    
+    this.nethernet.onClose = (reason) => this.close(reason || 'Nethernet closed')
+
+  }
+
   async close (disconnectReason = 'Server closed') {
     for (const caddr in this.clients) {
       const client = this.clients[caddr]
@@ -149,7 +176,7 @@ class Server extends EventEmitter {
 
     // Allow some time for client to get disconnect before closing connection.
     await sleep(60)
-    this.raknet.close()
+    // this.raknet.close()
   }
 }
 
