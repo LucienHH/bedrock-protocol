@@ -82,25 +82,6 @@ class Framer {
     return Buffer.concat([Buffer.from(header), compressed])
   }
 
-  // encodePacket(packet) {
-  //   let buf = Buffer.alloc(0);
-  //   const l = Buffer.alloc(5);
-
-  //   const packetLength = writeVaruint32(packet.length, l);
-    
-  //   buf = Buffer.concat([buf, packetLength, packet]);
-
-  //   let prepend = Buffer.alloc(0);
-
-  //   const finalData = Buffer.concat([prepend, buf]);
-
-  //   const compressed = (finalData.length > this.compressionThreshold) ? this.compress(finalData) : finalData;
-
-  //   const header = this.writeCompressor ? [0xfe, 0] : [0xfe];
-
-  //   return Buffer.concat([Buffer.from(header), compressed]);
-  // }
-
   encodePacket (chunk) {
     const varIntSize = sizeOfVarInt(chunk.byteLength)
     
@@ -116,7 +97,6 @@ class Framer {
       ? Buffer.concat([Buffer.from([255]), compressed])
       : compressed
   }
-
 
   addEncodedPacket (chunk) {
     const varIntSize = sizeOfVarInt(chunk.byteLength)
