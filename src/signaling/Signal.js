@@ -95,7 +95,7 @@ class Signal extends EventEmitter {
     // @ts-expect-error 2454
     const xbl = await this.authflow.getMinecraftServicesToken()
 
-    this.authorization = xbl.authorizationHeader
+    this.authorization = xbl.mcToken
 
     debug('Fetched XBL Token', xbl)
 
