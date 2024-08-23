@@ -68,7 +68,7 @@ class Nethernet {
     conn.onicecandidate = (e) => {
       if (e.candidate) {
         this.signaling.write(
-          new SignalStructure(SignalType.CandidateAdd, signal.connectionID, e.candidate, signal.networkID)
+          new SignalStructure(SignalType.CandidateAdd, signal.connectionID, e.candidate.candidate, signal.networkID)
         )
       }
     }
