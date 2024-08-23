@@ -65,6 +65,14 @@ class Nethernet {
       ],
     })
 
+    conn.onicecandidate = (e) => {
+      if (e.candidate) {
+        this.signaling.write(
+          new SignalStructure(SignalType.CandidateAdd, signal.connectionID, e.candidate, signal.networkID)
+        )
+      }
+    }
+
     await conn.setRemoteDescription({ type: 'offer', sdp: signal.data })
 
     const c = new Connections(this, signal.connectionID, signal.networkID, conn, parse(signal.data))
@@ -132,12 +140,6 @@ class Nethernet {
     this.signaling.write(
       new SignalStructure(SignalType.ConnectResponse, signal.connectionID, desc, signal.networkID)
     )
-
-    for (const candidate of ice.iceGather.localCandidates) {
-      this.signaling.write(
-        new SignalStructure(SignalType.CandidateAdd, signal.connectionID, formatICECandidate(ice.iceGather.localCandidates.indexOf(candidate), candidate, iceParams), signal.networkID)
-      )
-    }
 
   }
 
